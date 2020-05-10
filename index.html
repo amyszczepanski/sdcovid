@@ -3,6 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<title>San Diego County: COVID-19</title>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.25.0/moment.min.js" integrity="sha256-imB/oMaNA0YvIkDkF5mINRWpuFPEGVCEkHy6rm2lAzA=" crossorigin="anonymous"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js"></script>
 		<script src="zipShapes.js"></script>
@@ -37,6 +38,8 @@
 		<div><h3>COVID-19 total cases in San Diego County by ZIP code</h3></div>
 		<div>Grayscale for locations with fewer than five cases or fewer than 10,000 people.</div>
 		<div style="padding-bottom: 5px;">Darker colors represent more cases per 10,000 population.</div>
+		<label for="start">View cases for a particular date:</label>
+		<input type="date" id="zipDate" name="zipDate" min="2020-03-12">
 		<div id="words"></div>
 		<div id="map" class="map-box"></div>
 		<div>
@@ -63,7 +66,7 @@
 
 		<script type="text/javascript">
 		  const MAX_POPULATION = 84626;
-		
+
 			// Note to self, County doesn't use WGS84.
 			// ogr2ogr -f GeoJSON -t_srs "EPSG:4326" zipcodes.geojson f285f663-2fc3-43b8-910a-31df89a27bdf2020330-1-1a4uvc4.5829.shp
 
@@ -120,287 +123,274 @@
 				.style("border-radius", "3px")
 				.style("padding", "4px")
 				.style("pointer-events", "none");
+
+				// Helper functions and such
 				
-			const positiveURL = "https://gis-public.sandiegocounty.gov/arcgis/rest/services/Hosted/COVID_19_Statistics_San_Diego_County/FeatureServer/0/query?where=1%3D1&outFields=objectid,date,tests,positives,newtests,newcases&returnGeometry=false&outSR=&f=json";
-			d3.json(positiveURL).then(function(positiveRawData) {				
-				const positiveData = [];
-				for (let i = 0; i < positiveRawData.features.length; i++) {
-					const thisRow = positiveRawData.features[i].attributes;
-					const thisObject = {
-						"date": parseInt(thisRow.date) / 1000,
-						"tests": thisRow.tests,
-						"newtests": thisRow.newtests,
-						"positives": thisRow.positives,
-						"newcases": thisRow.newcases,
-						"cumPercentage": 100 * parseFloat(thisRow.positives) / parseFloat(Math.max(thisRow.tests, 1)),
-						"todayPercent": (thisRow.newtests ? 100 * parseFloat(thisRow.newcases) / parseFloat(Math.max(thisRow.newtests, 1)) : null),
-					};
-					if (thisObject.tests !== null) {
-						positiveData.push(thisObject);					
+				// This should go into the zipShapes.js file.
+				const objectZIP = {};
+				// Match data to shapes based on OBJECTID from the GeoJSON
+				for (let i = 0; i < zipShapes.features.length; i++) {
+					theZIP = zipShapes.features[i].properties.ZIP.toString();					
+					if (theZIP in objectZIP) {
+						objectZIP[theZIP].push(i);		
+					} else {
+						objectZIP[theZIP] = [i];
 					}
 				}
 				
-				// Ensure array is ordered by date
-				positiveData.sort(function(a, b) {
-					return a.date - b.date;
-				});
-				
-				// Most recent information:
-				const totalCases = positiveData[positiveData.length - 1].positives;
-				const sinceYesterday = positiveData[positiveData.length - 1].newcases;
-				const dataDate = positiveData[positiveData.length - 1].date;
-				
-				document.getElementById("overall-stats").innerHTML = "As of " +
-				moment(1000 * parseInt(dataDate)).format('MMMM D, YYYY') + 
-				", there were " + totalCases + " cases of COVID-19 recorded in San Diego County.<br>" +
-				"This was an increase of " + sinceYesterday + " cases from the previous day.";
-				document.getElementById("overall-stats").style.visibility = "visible";
-								
-				// Time is terrible. I hate it.
-				const parseTime = d3.timeParse("%s");
-								
-				const xScale = d3
-					.scaleTime()
-					.domain([
-						d3.min(positiveData, function(d) {
-							return parseTime(d.date);
-						}),
-						d3.max(positiveData, function(d) {
-							return parseTime(d.date);
-						}),
-					])
-					.range([paddingPos, w - paddingPos]);
-					
-				const xAxis = d3.axisBottom(xScale);
-
-				// Plotting two things; might need to know the largest-est
-				const cumMax = d3.max(positiveData, function(d) {
-					return d.cumPercentage;
-				});
-				const dailyMax = d3.max(positiveData, function(d) {
-					return d.todayPercent;
-				});
-				const overallMax = Math.max(cumMax, dailyMax);			
-				
-				// y-axis doesn't need conversion, just move points away from margins
-				// The 5 is an ad hoc constant to make things look better in Chrome
-				const yScale = d3
-					.scaleLinear()
-					.domain([0, dailyMax])
-					.range([hPositive - paddingPos, 5]);
-
-				const yAxis = d3.axisLeft(yScale);
-
-				const yScale2 = d3
-					.scaleLinear()
-					.domain([0, cumMax])
-					.range([hPositive - paddingPos, 5]);
-
-				const yAxis2 = d3.axisLeft(yScale2);
-
-				const mouseOver = function(d) {
-					d3.select(this)
-						.style("fill", "#990000");
-					tooltip
-						.style("opacity", 1)
-						.html(function() {
-							return (
-								moment(1000 * parseInt(d.date)).format('MMMM D, YYYY') + 
-								"<br>" + (d.todayPercent ? d.todayPercent.toFixed(2) + "%<br>" + 
-								d.newcases + " out of " + d.newtests + " tests" : "missing some data")
-							);
-						})
-						.style("position", "absolute")
-						.style("left", parseInt(d3.event.pageX) + "px")
-						.style("top", parseInt(d3.event.pageY) + "px");
+				// Simplify the data structure.
+				const processCountyData = function(countyData) {
+					// Array of objects makes it easier to find the extent of the data
+					const dateCounts = [];
+					for (let i = 0; i < countyData.features.length; i++) {
+						const thisZIP = countyData.features[i].properties.zipcode_zip;
+						const updateDate = countyData.features[i].properties.updatedate;
+						const caseCount = countyData.features[i].properties.case_count;
+						const parsedDate = moment(updateDate, "YYYY-MM-DD");
+						dateCounts.push({"ZIP": thisZIP.toString(), "date": parsedDate, "cases": caseCount});
+					}
+					return dateCounts;
 				}
 
-				// Too lazy to do this the right way. Sorry not sorry.
-				// When I'm getting paid, I'll avoid this sort of duplication.
-				// I'll also separate things out instead of making one huge file.
-				const mouseOver2 = function(d) {
-					d3.select(this)
-						.style("fill", "#990000");
-					tooltip
-						.style("opacity", 1)
-						.html(function() {
-							return (
-								moment(1000 * parseInt(d.date)).format('MMMM D, YYYY') + 
-								"<br>" + d.cumPercentage.toFixed(2) + "%<br>" + 
-								d.positives + " out of " + d.tests + " tests"
-							);
-						})
-						.style("position", "absolute")
-						.style("left", parseInt(d3.event.pageX) + "px")
-						.style("top", parseInt(d3.event.pageY) + "px");
+				// We can map for any date in the dataset by looking up (date, object)
+				// The shapefile has the object for each path; OBJECTID = index + 1
+				const makeMappableData = function(minDate, dateExtent, dateCounts, objectZIP) {
+					// This creates the array of arrays that can be used for mapping
+					// (dateOffset, cases[objectID]) 
+					casesDateZIP = [];
+					for (let i = 0; i < dateExtent + 1; i++) {
+						casesDateZIP.push(Array(zipShapes.features.length).fill(null));
+					}
+
+					// Now we populate it with case data.
+					for (const dateGeoData of dateCounts) {
+						const dateOffset = moment(dateGeoData.date).diff(minDate, 'days');
+						// Find and iterate over the objectIDs for this ZIP code
+						for (const objectID of objectZIP[dateGeoData.ZIP.toString()]) {
+							// Now write the number of cases to that cell.
+							casesDateZIP[dateOffset][parseInt(objectID)] = dateGeoData.cases;					
+						}
+					}
+					return casesDateZIP;
 				}
-
-				const mouseLeave = function(d) {
-					d3.select(this)
-						.style("fill", "black");
-					tooltip.style("opacity", 0);
-				}
-
-				// Let's make a graph!
-
-				// Remove the loading text
-				d3.select("#pos-loading-text").remove()
-
-				// Positive cases by date
-				positivesvg.selectAll("circle")
-					.data(positiveData)
-					.enter()
-					.append("circle")
-					.filter(function(d) {
-						return (d.todayPercent !== null);
-					})
-					.attr("fill", "black")
-					.attr("cx", function(d) {
-						return xScale(parseTime(d.date));											
-					})
-					.attr("cy", function (d) {
-						return yScale(d.todayPercent)
-					})
-					.attr("r", 4)
-					.on("mouseover", mouseOver)
-					.on("mouseleave", mouseLeave);
-					
-				positivesvg
-					.append("g")
-					.attr("class", "axis")
-					.attr("transform", "translate(0," + (hPositive - paddingPos) + ")")
-					.call(xAxis);
-
-				positivesvg
-					.append("g")
-					.attr("class", "axis")
-					.attr("transform", "translate(" + paddingPos + ",0)")
-					.call(yAxis);
-
-				// Remove the loading text
-				d3.select("#cp-loading-text").remove()
-										
-				cumPositivesvg.selectAll("circle")
-					.data(positiveData)
-					.enter()
-					.append("circle")
-					.attr("fill", "black")
-					.attr("cx", function(d) {
-						return xScale(parseTime(d.date));
-					})
-					.attr("cy", function (d) {
-						return yScale2(d.cumPercentage)
-					})
-					.attr("r", 4)
-					.on("mouseover", mouseOver2)
-					.on("mouseleave", mouseLeave);		
-
-				cumPositivesvg
-					.append("g")
-					.attr("class", "axis")
-					.attr("transform", "translate(0," + (hPositive - paddingPos) + ")")
-					.call(xAxis);
-
-				cumPositivesvg
-					.append("g")
-					.attr("class", "axis")
-					.attr("transform", "translate(" + paddingPos + ",0)")
-					.call(yAxis2);
 				
-			// This is the closing delimiter for the percentage graphs
-			// Note to self: Please stop deleting it.
-			});
+				
+// 			const positiveURL = "https://gis-public.sandiegocounty.gov/arcgis/rest/services/Hosted/COVID_19_Statistics_San_Diego_County/FeatureServer/0/query?where=1%3D1&outFields=objectid,date,tests,positives,newtests,newcases&returnGeometry=false&outSR=&f=json";
+// 			d3.json(positiveURL).then(function(positiveRawData) {				
+// 				const positiveData = [];
+// 				for (let i = 0; i < positiveRawData.features.length; i++) {
+// 					const thisRow = positiveRawData.features[i].attributes;
+// 					const thisObject = {
+// 						"date": parseInt(thisRow.date) / 1000,
+// 						"tests": thisRow.tests,
+// 						"newtests": thisRow.newtests,
+// 						"positives": thisRow.positives,
+// 						"newcases": thisRow.newcases,
+// 						"cumPercentage": 100 * parseFloat(thisRow.positives) / parseFloat(Math.max(thisRow.tests, 1)),
+// 						"todayPercent": (thisRow.newtests ? 100 * parseFloat(thisRow.newcases) / parseFloat(Math.max(thisRow.newtests, 1)) : null),
+// 					};
+// 					if (thisObject.tests !== null) {
+// 						positiveData.push(thisObject);					
+// 					}
+// 				}
+// 				
+// 				// Ensure array is ordered by date
+// 				positiveData.sort(function(a, b) {
+// 					return a.date - b.date;
+// 				});
+// 				
+// 				// Most recent information:
+// 				const totalCases = positiveData[positiveData.length - 1].positives;
+// 				const sinceYesterday = positiveData[positiveData.length - 1].newcases;
+// 				const dataDate = positiveData[positiveData.length - 1].date;
+// 				
+// 				document.getElementById("overall-stats").innerHTML = "As of " +
+// 				moment(1000 * parseInt(dataDate)).format('MMMM D, YYYY') + 
+// 				", there were " + totalCases + " cases of COVID-19 recorded in San Diego County.<br>" +
+// 				"This was an increase of " + sinceYesterday + " cases from the previous day.";
+// 				document.getElementById("overall-stats").style.visibility = "visible";
+// 								
+// 				// Time is terrible. I hate it.
+// 				const parseTime = d3.timeParse("%s");
+// 								
+// 				const xScale = d3
+// 					.scaleTime()
+// 					.domain([
+// 						d3.min(positiveData, function(d) {
+// 							return parseTime(d.date);
+// 						}),
+// 						d3.max(positiveData, function(d) {
+// 							return parseTime(d.date);
+// 						}),
+// 					])
+// 					.range([paddingPos, w - paddingPos]);
+// 					
+// 				const xAxis = d3.axisBottom(xScale);
+// 
+// 				// Plotting two things; might need to know the largest-est
+// 				const cumMax = d3.max(positiveData, function(d) {
+// 					return d.cumPercentage;
+// 				});
+// 				const dailyMax = d3.max(positiveData, function(d) {
+// 					return d.todayPercent;
+// 				});
+// 				const overallMax = Math.max(cumMax, dailyMax);			
+// 				
+// 				// y-axis doesn't need conversion, just move points away from margins
+// 				// The 5 is an ad hoc constant to make things look better in Chrome
+// 				const yScale = d3
+// 					.scaleLinear()
+// 					.domain([0, dailyMax])
+// 					.range([hPositive - paddingPos, 5]);
+// 
+// 				const yAxis = d3.axisLeft(yScale);
+// 
+// 				const yScale2 = d3
+// 					.scaleLinear()
+// 					.domain([0, cumMax])
+// 					.range([hPositive - paddingPos, 5]);
+// 
+// 				const yAxis2 = d3.axisLeft(yScale2);
+// 
+// 				const mouseOver = function(d) {
+// 					d3.select(this)
+// 						.style("fill", "#990000");
+// 					tooltip
+// 						.style("opacity", 1)
+// 						.html(function() {
+// 							return (
+// 								moment(1000 * parseInt(d.date)).format('MMMM D, YYYY') + 
+// 								"<br>" + (d.todayPercent ? d.todayPercent.toFixed(2) + "%<br>" + 
+// 								d.newcases + " out of " + d.newtests + " tests" : "missing some data")
+// 							);
+// 						})
+// 						.style("position", "absolute")
+// 						.style("left", parseInt(d3.event.pageX) + "px")
+// 						.style("top", parseInt(d3.event.pageY) + "px");
+// 				}
+// 
+// 				// Too lazy to do this the right way. Sorry not sorry.
+// 				// When I'm getting paid, I'll avoid this sort of duplication.
+// 				// I'll also separate things out instead of making one huge file.
+// 				const mouseOver2 = function(d) {
+// 					d3.select(this)
+// 						.style("fill", "#990000");
+// 					tooltip
+// 						.style("opacity", 1)
+// 						.html(function() {
+// 							return (
+// 								moment(1000 * parseInt(d.date)).format('MMMM D, YYYY') + 
+// 								"<br>" + d.cumPercentage.toFixed(2) + "%<br>" + 
+// 								d.positives + " out of " + d.tests + " tests"
+// 							);
+// 						})
+// 						.style("position", "absolute")
+// 						.style("left", parseInt(d3.event.pageX) + "px")
+// 						.style("top", parseInt(d3.event.pageY) + "px");
+// 				}
+// 
+// 				const mouseLeave = function(d) {
+// 					d3.select(this)
+// 						.style("fill", "black");
+// 					tooltip.style("opacity", 0);
+// 				}
+// 
+// 				// Let's make a graph!
+// 
+// 				// Remove the loading text
+// 				d3.select("#pos-loading-text").remove()
+// 
+// 				// Positive cases by date
+// 				positivesvg.selectAll("circle")
+// 					.data(positiveData)
+// 					.enter()
+// 					.append("circle")
+// 					.filter(function(d) {
+// 						return (d.todayPercent !== null);
+// 					})
+// 					.attr("fill", "black")
+// 					.attr("cx", function(d) {
+// 						return xScale(parseTime(d.date));											
+// 					})
+// 					.attr("cy", function (d) {
+// 						return yScale(d.todayPercent)
+// 					})
+// 					.attr("r", 4)
+// 					.on("mouseover", mouseOver)
+// 					.on("mouseleave", mouseLeave);
+// 					
+// 				positivesvg
+// 					.append("g")
+// 					.attr("class", "axis")
+// 					.attr("transform", "translate(0," + (hPositive - paddingPos) + ")")
+// 					.call(xAxis);
+// 
+// 				positivesvg
+// 					.append("g")
+// 					.attr("class", "axis")
+// 					.attr("transform", "translate(" + paddingPos + ",0)")
+// 					.call(yAxis);
+// 
+// 				// Remove the loading text
+// 				d3.select("#cp-loading-text").remove()
+// 										
+// 				cumPositivesvg.selectAll("circle")
+// 					.data(positiveData)
+// 					.enter()
+// 					.append("circle")
+// 					.attr("fill", "black")
+// 					.attr("cx", function(d) {
+// 						return xScale(parseTime(d.date));
+// 					})
+// 					.attr("cy", function (d) {
+// 						return yScale2(d.cumPercentage)
+// 					})
+// 					.attr("r", 4)
+// 					.on("mouseover", mouseOver2)
+// 					.on("mouseleave", mouseLeave);		
+// 
+// 				cumPositivesvg
+// 					.append("g")
+// 					.attr("class", "axis")
+// 					.attr("transform", "translate(0," + (hPositive - paddingPos) + ")")
+// 					.call(xAxis);
+// 
+// 				cumPositivesvg
+// 					.append("g")
+// 					.attr("class", "axis")
+// 					.attr("transform", "translate(" + paddingPos + ",0)")
+// 					.call(yAxis2);
+// 				
+// 			// This is the closing delimiter for the percentage graphs
+// 			// Note to self: Please stop deleting it.
+// 			});
 
 
 			// Use local copy of data for development.
 // 			const url = "countyData.json";
 			const url = "https://opendata.arcgis.com/datasets/854d7e48e3dc451aa93b9daf82789089_0.geojson";
-			d3.json(url).then(function(countyData) {
-				// Simplify the data structure.
-				const dateCounts = [];
-				for (let i = 0; i < countyData.features.length; i++) {
-					const thisZIP = countyData.features[i].properties.zipcode_zip;
-					const updateDate = countyData.features[i].properties.updatedate;
-					const caseCount = countyData.features[i].properties.case_count;
-					const parsedDate = moment(updateDate, "YYYY-MM-DD");
-					dateCounts.push({"ZIP": thisZIP, "date": parsedDate, "cases": caseCount});
-				}
+			d3.json(url).then(function(countyData) {				
+				dateCounts = processCountyData(countyData);
 
 				// What dates do we have data for? What is the extent?
-				// This will be used for showing how things changed over time
-				// That hasn't been implemented yet, though.
 				const observedDate = dateCounts.map(function(observation) {
 					return observation.date;
-    		});
+				});
 				const minDate = moment.min(observedDate);
 				const maxDate = moment.max(observedDate);
 				const dateExtent = parseInt(maxDate.diff(minDate, 'days'));
 
-				// This finds the max over all time -- will be needed for comparing dates
-				// Don't need yet, though.
-				const maxCases = d3.max(dateCounts, function(d) {
-					return d.cases;
-				});
+				// Initialize the date picker.
+				document.getElementById("zipDate").setAttribute("min", moment(minDate).format("YYYY-MM-DD"));		
+				document.getElementById("zipDate").setAttribute("max", moment(maxDate).format("YYYY-MM-DD"));		
+				document.getElementById("zipDate").setAttribute("value", moment(maxDate).format("YYYY-MM-DD"));		
+
+				const mapData = makeMappableData(minDate, dateExtent, dateCounts, objectZIP);
 				
-				const mouseOver = function(d) {
-					d3.select(this)
-						.style("opacity", 0.5);
-					tooltip
-						.style("opacity", 1)
-						.html(function() {
-							return (
-								d.properties.ZIP + 
-								" " + 
-								(d.properties.ZIP === 92145 ? "MCAS Miramar" : d.properties.COMMUNITY)	+ 
-								"<br>" +
-								(d.properties.cases ? d.properties.cases : "no reported" ) +
-								" case" +
-								(d.properties.cases === 1 ? "" : "s") + 
-								(d.properties.cases ? ", population: " + d.properties.population + "<br>" + (10000.0 * d.properties.cases / d.properties.population).toFixed(2) + " per 10k population" : "")
-							);
-						})
-						.style("position", "absolute")
-						.style("left", parseInt(d3.event.pageX) + "px")
-						.style("top", parseInt(d3.event.pageY) + "px");
-				}
-				
-				const mouseLeave = function(d) {
-					d3.select(this)
-						.style("opacity", 1);
-					tooltip.style("opacity", 0);
-				}
 		
-				let path = d3.geoPath()
-				 .projection(d3.geoMercator().fitSize([w, h], zipShapes));
-
-				// Eventually I want to animate the map.
-				// However, the County's data is big and slow.
-				// So I would need to pre-calculate a bunch of stuff and cache it.
-				
-				// Currently: Draw the map for the largest date with data.
-				const drawDate = maxDate;
-
-				// For multiple layers, need to deep clone the GeoJSON file before filtering. 
-				for (let i = 0; i < dateCounts.length; i++) {
-					const theZIP = dateCounts[i].ZIP;
-					const caseCount = dateCounts[i].cases;
-					const theDate = dateCounts[i].date.startOf('day');
-
-					for (let j = 0; j < zipShapes.features.length; j++) {
-						const geoZIP = zipShapes.features[j].properties.ZIP;
-						
-						if (theZIP == geoZIP && theDate.isSame(drawDate, "day")) {
-								zipShapes.features[j].properties.cases = caseCount;
-						} 
-					}					
-				}
-
-				// At some point, define colors in a way that is consistent over time.
-				// But we are not at that point yet.
-				
 				// max for ZIPs with more than five cases and more than 10,000 people
-				const maxPer10k = d3.max(zipShapes.features, function(d) {
-					return (d.properties.cases > 4 && d.properties.population > 10000 ? 10000 * d.properties.cases / Math.max(d.properties.population, 1) : 0);
+				const maxPer10k = d3.max(zipShapes.features, function(d, i) {
+					return (mapData[dateExtent][i] > 4 && d.properties.population > 10000 ? 10000.0 * mapData[dateExtent][i] / Math.max(d.properties.population, 1) : 0);
 				});
 								
 				// based on the case counts, define some colors
@@ -413,32 +403,84 @@
 				const drabberScale = d3.scaleQuantize();
 				drabberScale.domain([0, maxPer10k]);
 				drabberScale.range(['#f7f7f7', '#d9d9d9', '#bdbdbd', '#969696', '#737373', '#525252', '#252525']);
-								
-				// Remove the loading text
-				d3.select("#map-loading-text").remove()
-				
-				// Some words
-				document.getElementById("words").innerHTML = "Data from " +
-				maxDate.format('MMMM D, YYYY') + ".";
-				
-				// Bind data and create one path per GeoJSON feature
-				mapsvg.selectAll("path")
-					 .data(zipShapes.features)
-					 .enter()
-					 .append("path")
-					 .attr("d", path)
-					 .attr("class", function(d) { return "ZIP" })
-					 .style("stroke", "black")
-					 .style("fill", function(d) {
-						const value = (10000 * d.properties.cases / Math.max(d.properties.population, 1));
-						if (d.properties.cases > 4 && d.properties.population > 10000) {
-							return colorScale(value);
-						} else {
-							return drabberScale(value ? value : 0);
+
+				d3.select("#zipDate")
+					.on("change", function() {
+						let chosenDate = moment(document.getElementById("zipDate").value);
+						let chosenOffset = moment(chosenDate).diff(minDate, "days");
+						if (chosenOffset < 0 || moment(chosenDate).isAfter(moment())) {
+							chosenDate = maxDate;
+							chosenOffset = dateExtent;
+							document.getElementById("zipDate").value = maxDate.format("YYYY-MM-DD");					
 						}
-					 })
-					 .on("mouseover", mouseOver)
-					 .on("mouseleave", mouseLeave);		
+
+						// Remove the loading text
+						d3.select("#map-loading-text").remove();
+						
+						// Remove any old maps
+						d3.selectAll("path").remove();
+				
+						// Some words
+						document.getElementById("words").innerHTML = "Data from " +
+						chosenDate.format('MMMM D, YYYY') + ".";
+						
+
+						const mouseOver = function(d, i) {
+							d3.select(this)
+								.style("stroke-width", 2)
+								.style("fill-opacity", 0.5);
+							tooltip
+								.style("opacity", 1)
+								.html(function() {
+									return (
+										d.properties.ZIP + 
+										" " + 
+										(d.properties.ZIP === 92145 ? "MCAS Miramar" : d.properties.COMMUNITY)	+ 
+										"<br>" +
+										(mapData[chosenOffset][i] ? mapData[chosenOffset][i] : "no reported" ) +
+										" case" +
+										(mapData[chosenOffset][i] === 1 ? "" : "s") + 
+										(mapData[chosenOffset][i] ? ", population: " + d.properties.population + "<br>" + (10000.0 * mapData[chosenOffset][i] / d.properties.population).toFixed(2) + " per 10k population" : "")
+									);
+								})
+								.style("position", "absolute")
+								.style("left", parseInt(d3.event.pageX) + "px")
+								.style("top", parseInt(d3.event.pageY) + "px");
+						}
+				
+						const mouseLeave = function(d) {
+							d3.select(this)
+								.style("stroke-width", 1)
+								.style("fill-opacity", 1);
+							tooltip.style("opacity", 0);
+						}
+	
+						let path = d3.geoPath()
+						 .projection(d3.geoMercator().fitSize([w, h], zipShapes));								
+			
+						// Bind data and create one path per GeoJSON feature
+						mapsvg.selectAll("path")
+							 .data(zipShapes.features)
+							 .enter()
+							 .append("path")
+							 .attr("d", path)
+							 .attr("class", function(d) { return "ZIP" })
+							 .style("stroke", "black")
+							 .style("fill", function(d, i) {
+								const value = (10000 * mapData[chosenOffset][i] / Math.max(d.properties.population, 1));
+								if (mapData[chosenOffset][i] > 4 && d.properties.population > 10000) {
+									return colorScale(value);
+								} else {
+									return drabberScale(value ? value : 0);
+								}
+							 })
+							 .on("mouseover", mouseOver)
+							 .on("mouseleave", mouseLeave);		
+					});
+
+				document.getElementById("zipDate").dispatchEvent(new Event("change"));
+
+			// End group for reading in the GeoJSON case data
 			});
 			
 		</script>
