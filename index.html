@@ -127,6 +127,18 @@
 				.style("padding", "4px")
 				.style("pointer-events", "none");
 
+				// ad hoc way of fixing tooltips on mobile
+				document.body.addEventListener("click", function() {
+					if (this.className === "ZIP" || this.className === "point" || this.className === "tooltip") {
+						return;
+					} else {
+						d3.selectAll("div.tooltip")
+						  .style("opacity", 0);
+// 						console.log("I obliterate tooltips.");
+						return;
+					}
+				});
+
 				// Helper functions and such
 				
 				// This should go into the zipShapes.js file.
@@ -269,6 +281,7 @@
 						.style("position", "absolute")
 						.style("left", parseInt(d3.event.pageX) + "px")
 						.style("top", parseInt(d3.event.pageY) + "px");
+						d3.event.stopPropagation();
 				}
 
 				// Too lazy to do this the right way. Sorry not sorry.
@@ -289,6 +302,7 @@
 						.style("position", "absolute")
 						.style("left", parseInt(d3.event.pageX) + "px")
 						.style("top", parseInt(d3.event.pageY) + "px");
+						d3.event.stopPropagation();
 				}
 
 				const mouseLeave = function(d) {
@@ -310,6 +324,7 @@
 					.filter(function(d) {
 						return (d.todayPercent !== null);
 					})
+					.attr("class", "point")
 					.attr("fill", "black")
 					.attr("cx", function(d) {
 						return xScale(parseTime(d.date));											
@@ -319,6 +334,7 @@
 					})
 					.attr("r", 4)
 					.on("mouseover", mouseOver)
+					.on("click", mouseOver)
 					.on("mouseleave", mouseLeave);
 					
 				positivesvg
@@ -340,6 +356,7 @@
 					.data(positiveData)
 					.enter()
 					.append("circle")
+					.attr("class", "point")
 					.attr("fill", "black")
 					.attr("cx", function(d) {
 						return xScale(parseTime(d.date));
@@ -349,6 +366,7 @@
 					})
 					.attr("r", 4)
 					.on("mouseover", mouseOver2)
+					.on("click", mouseOver2)
 					.on("mouseleave", mouseLeave);		
 
 				cumPositivesvg
@@ -448,6 +466,7 @@
 								.style("position", "absolute")
 								.style("left", parseInt(d3.event.pageX) + "px")
 								.style("top", parseInt(d3.event.pageY) + "px");
+							d3.event.stopPropagation();
 						}
 				
 						const mouseLeave = function(d) {
@@ -476,6 +495,7 @@
 									return drabberScale(value ? value : 0);
 								}
 							 })
+							 .on("click", mouseOver)
 							 .on("mouseover", mouseOver)
 							 .on("mouseleave", mouseLeave);		
 					});
