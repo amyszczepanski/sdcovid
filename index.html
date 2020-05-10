@@ -36,6 +36,7 @@
 		<div id="cumPositive-words"></div>
 		<div id="cumPositive-graph"></div>
 		<div><h3>COVID-19 total cases in San Diego County by ZIP code</h3></div>
+		<div>Some data for military bases is reported inconsistently.</div>
 		<div>Grayscale for locations with fewer than five cases or fewer than 10,000 people.</div>
 		<div style="padding-bottom: 5px;">Darker colors represent more cases per 10,000 population.</div>
 		<label for="start">View cases for a particular date:</label>
@@ -174,196 +175,195 @@
 					return casesDateZIP;
 				}
 				
+			const positiveURL = "https://gis-public.sandiegocounty.gov/arcgis/rest/services/Hosted/COVID_19_Statistics_San_Diego_County/FeatureServer/0/query?where=1%3D1&outFields=objectid,date,tests,positives,newtests,newcases&returnGeometry=false&outSR=&f=json";
+			d3.json(positiveURL).then(function(positiveRawData) {				
+				const positiveData = [];
+				for (let i = 0; i < positiveRawData.features.length; i++) {
+					const thisRow = positiveRawData.features[i].attributes;
+					const thisObject = {
+						"date": parseInt(thisRow.date) / 1000,
+						"tests": thisRow.tests,
+						"newtests": thisRow.newtests,
+						"positives": thisRow.positives,
+						"newcases": thisRow.newcases,
+						"cumPercentage": 100 * parseFloat(thisRow.positives) / parseFloat(Math.max(thisRow.tests, 1)),
+						"todayPercent": (thisRow.newtests ? 100 * parseFloat(thisRow.newcases) / parseFloat(Math.max(thisRow.newtests, 1)) : null),
+					};
+					if (thisObject.tests !== null) {
+						positiveData.push(thisObject);					
+					}
+				}
 				
-// 			const positiveURL = "https://gis-public.sandiegocounty.gov/arcgis/rest/services/Hosted/COVID_19_Statistics_San_Diego_County/FeatureServer/0/query?where=1%3D1&outFields=objectid,date,tests,positives,newtests,newcases&returnGeometry=false&outSR=&f=json";
-// 			d3.json(positiveURL).then(function(positiveRawData) {				
-// 				const positiveData = [];
-// 				for (let i = 0; i < positiveRawData.features.length; i++) {
-// 					const thisRow = positiveRawData.features[i].attributes;
-// 					const thisObject = {
-// 						"date": parseInt(thisRow.date) / 1000,
-// 						"tests": thisRow.tests,
-// 						"newtests": thisRow.newtests,
-// 						"positives": thisRow.positives,
-// 						"newcases": thisRow.newcases,
-// 						"cumPercentage": 100 * parseFloat(thisRow.positives) / parseFloat(Math.max(thisRow.tests, 1)),
-// 						"todayPercent": (thisRow.newtests ? 100 * parseFloat(thisRow.newcases) / parseFloat(Math.max(thisRow.newtests, 1)) : null),
-// 					};
-// 					if (thisObject.tests !== null) {
-// 						positiveData.push(thisObject);					
-// 					}
-// 				}
-// 				
-// 				// Ensure array is ordered by date
-// 				positiveData.sort(function(a, b) {
-// 					return a.date - b.date;
-// 				});
-// 				
-// 				// Most recent information:
-// 				const totalCases = positiveData[positiveData.length - 1].positives;
-// 				const sinceYesterday = positiveData[positiveData.length - 1].newcases;
-// 				const dataDate = positiveData[positiveData.length - 1].date;
-// 				
-// 				document.getElementById("overall-stats").innerHTML = "As of " +
-// 				moment(1000 * parseInt(dataDate)).format('MMMM D, YYYY') + 
-// 				", there were " + totalCases + " cases of COVID-19 recorded in San Diego County.<br>" +
-// 				"This was an increase of " + sinceYesterday + " cases from the previous day.";
-// 				document.getElementById("overall-stats").style.visibility = "visible";
-// 								
-// 				// Time is terrible. I hate it.
-// 				const parseTime = d3.timeParse("%s");
-// 								
-// 				const xScale = d3
-// 					.scaleTime()
-// 					.domain([
-// 						d3.min(positiveData, function(d) {
-// 							return parseTime(d.date);
-// 						}),
-// 						d3.max(positiveData, function(d) {
-// 							return parseTime(d.date);
-// 						}),
-// 					])
-// 					.range([paddingPos, w - paddingPos]);
-// 					
-// 				const xAxis = d3.axisBottom(xScale);
-// 
-// 				// Plotting two things; might need to know the largest-est
-// 				const cumMax = d3.max(positiveData, function(d) {
-// 					return d.cumPercentage;
-// 				});
-// 				const dailyMax = d3.max(positiveData, function(d) {
-// 					return d.todayPercent;
-// 				});
-// 				const overallMax = Math.max(cumMax, dailyMax);			
-// 				
-// 				// y-axis doesn't need conversion, just move points away from margins
-// 				// The 5 is an ad hoc constant to make things look better in Chrome
-// 				const yScale = d3
-// 					.scaleLinear()
-// 					.domain([0, dailyMax])
-// 					.range([hPositive - paddingPos, 5]);
-// 
-// 				const yAxis = d3.axisLeft(yScale);
-// 
-// 				const yScale2 = d3
-// 					.scaleLinear()
-// 					.domain([0, cumMax])
-// 					.range([hPositive - paddingPos, 5]);
-// 
-// 				const yAxis2 = d3.axisLeft(yScale2);
-// 
-// 				const mouseOver = function(d) {
-// 					d3.select(this)
-// 						.style("fill", "#990000");
-// 					tooltip
-// 						.style("opacity", 1)
-// 						.html(function() {
-// 							return (
-// 								moment(1000 * parseInt(d.date)).format('MMMM D, YYYY') + 
-// 								"<br>" + (d.todayPercent ? d.todayPercent.toFixed(2) + "%<br>" + 
-// 								d.newcases + " out of " + d.newtests + " tests" : "missing some data")
-// 							);
-// 						})
-// 						.style("position", "absolute")
-// 						.style("left", parseInt(d3.event.pageX) + "px")
-// 						.style("top", parseInt(d3.event.pageY) + "px");
-// 				}
-// 
-// 				// Too lazy to do this the right way. Sorry not sorry.
-// 				// When I'm getting paid, I'll avoid this sort of duplication.
-// 				// I'll also separate things out instead of making one huge file.
-// 				const mouseOver2 = function(d) {
-// 					d3.select(this)
-// 						.style("fill", "#990000");
-// 					tooltip
-// 						.style("opacity", 1)
-// 						.html(function() {
-// 							return (
-// 								moment(1000 * parseInt(d.date)).format('MMMM D, YYYY') + 
-// 								"<br>" + d.cumPercentage.toFixed(2) + "%<br>" + 
-// 								d.positives + " out of " + d.tests + " tests"
-// 							);
-// 						})
-// 						.style("position", "absolute")
-// 						.style("left", parseInt(d3.event.pageX) + "px")
-// 						.style("top", parseInt(d3.event.pageY) + "px");
-// 				}
-// 
-// 				const mouseLeave = function(d) {
-// 					d3.select(this)
-// 						.style("fill", "black");
-// 					tooltip.style("opacity", 0);
-// 				}
-// 
-// 				// Let's make a graph!
-// 
-// 				// Remove the loading text
-// 				d3.select("#pos-loading-text").remove()
-// 
-// 				// Positive cases by date
-// 				positivesvg.selectAll("circle")
-// 					.data(positiveData)
-// 					.enter()
-// 					.append("circle")
-// 					.filter(function(d) {
-// 						return (d.todayPercent !== null);
-// 					})
-// 					.attr("fill", "black")
-// 					.attr("cx", function(d) {
-// 						return xScale(parseTime(d.date));											
-// 					})
-// 					.attr("cy", function (d) {
-// 						return yScale(d.todayPercent)
-// 					})
-// 					.attr("r", 4)
-// 					.on("mouseover", mouseOver)
-// 					.on("mouseleave", mouseLeave);
-// 					
-// 				positivesvg
-// 					.append("g")
-// 					.attr("class", "axis")
-// 					.attr("transform", "translate(0," + (hPositive - paddingPos) + ")")
-// 					.call(xAxis);
-// 
-// 				positivesvg
-// 					.append("g")
-// 					.attr("class", "axis")
-// 					.attr("transform", "translate(" + paddingPos + ",0)")
-// 					.call(yAxis);
-// 
-// 				// Remove the loading text
-// 				d3.select("#cp-loading-text").remove()
-// 										
-// 				cumPositivesvg.selectAll("circle")
-// 					.data(positiveData)
-// 					.enter()
-// 					.append("circle")
-// 					.attr("fill", "black")
-// 					.attr("cx", function(d) {
-// 						return xScale(parseTime(d.date));
-// 					})
-// 					.attr("cy", function (d) {
-// 						return yScale2(d.cumPercentage)
-// 					})
-// 					.attr("r", 4)
-// 					.on("mouseover", mouseOver2)
-// 					.on("mouseleave", mouseLeave);		
-// 
-// 				cumPositivesvg
-// 					.append("g")
-// 					.attr("class", "axis")
-// 					.attr("transform", "translate(0," + (hPositive - paddingPos) + ")")
-// 					.call(xAxis);
-// 
-// 				cumPositivesvg
-// 					.append("g")
-// 					.attr("class", "axis")
-// 					.attr("transform", "translate(" + paddingPos + ",0)")
-// 					.call(yAxis2);
-// 				
-// 			// This is the closing delimiter for the percentage graphs
-// 			// Note to self: Please stop deleting it.
-// 			});
+				// Ensure array is ordered by date
+				positiveData.sort(function(a, b) {
+					return a.date - b.date;
+				});
+				
+				// Most recent information:
+				const totalCases = positiveData[positiveData.length - 1].positives;
+				const sinceYesterday = positiveData[positiveData.length - 1].newcases;
+				const dataDate = positiveData[positiveData.length - 1].date;
+				
+				document.getElementById("overall-stats").innerHTML = "As of " +
+				moment(1000 * parseInt(dataDate)).format('MMMM D, YYYY') + 
+				", there were " + totalCases + " cases of COVID-19 recorded in San Diego County.<br>" +
+				"This was an increase of " + sinceYesterday + " cases from the previous day.";
+				document.getElementById("overall-stats").style.visibility = "visible";
+								
+				// Time is terrible. I hate it.
+				const parseTime = d3.timeParse("%s");
+								
+				const xScale = d3
+					.scaleTime()
+					.domain([
+						d3.min(positiveData, function(d) {
+							return parseTime(d.date);
+						}),
+						d3.max(positiveData, function(d) {
+							return parseTime(d.date);
+						}),
+					])
+					.range([paddingPos, w - paddingPos]);
+					
+				const xAxis = d3.axisBottom(xScale);
+
+				// Plotting two things; might need to know the largest-est
+				const cumMax = d3.max(positiveData, function(d) {
+					return d.cumPercentage;
+				});
+				const dailyMax = d3.max(positiveData, function(d) {
+					return d.todayPercent;
+				});
+				const overallMax = Math.max(cumMax, dailyMax);			
+				
+				// y-axis doesn't need conversion, just move points away from margins
+				// The 5 is an ad hoc constant to make things look better in Chrome
+				const yScale = d3
+					.scaleLinear()
+					.domain([0, dailyMax])
+					.range([hPositive - paddingPos, 5]);
+
+				const yAxis = d3.axisLeft(yScale);
+
+				const yScale2 = d3
+					.scaleLinear()
+					.domain([0, cumMax])
+					.range([hPositive - paddingPos, 5]);
+
+				const yAxis2 = d3.axisLeft(yScale2);
+
+				const mouseOver = function(d) {
+					d3.select(this)
+						.style("fill", "#990000");
+					tooltip
+						.style("opacity", 1)
+						.html(function() {
+							return (
+								moment(1000 * parseInt(d.date)).format('MMMM D, YYYY') + 
+								"<br>" + (d.todayPercent ? d.todayPercent.toFixed(2) + "%<br>" + 
+								d.newcases + " out of " + d.newtests + " tests" : "missing some data")
+							);
+						})
+						.style("position", "absolute")
+						.style("left", parseInt(d3.event.pageX) + "px")
+						.style("top", parseInt(d3.event.pageY) + "px");
+				}
+
+				// Too lazy to do this the right way. Sorry not sorry.
+				// When I'm getting paid, I'll avoid this sort of duplication.
+				// I'll also separate things out instead of making one huge file.
+				const mouseOver2 = function(d) {
+					d3.select(this)
+						.style("fill", "#990000");
+					tooltip
+						.style("opacity", 1)
+						.html(function() {
+							return (
+								moment(1000 * parseInt(d.date)).format('MMMM D, YYYY') + 
+								"<br>" + d.cumPercentage.toFixed(2) + "%<br>" + 
+								d.positives + " out of " + d.tests + " tests"
+							);
+						})
+						.style("position", "absolute")
+						.style("left", parseInt(d3.event.pageX) + "px")
+						.style("top", parseInt(d3.event.pageY) + "px");
+				}
+
+				const mouseLeave = function(d) {
+					d3.select(this)
+						.style("fill", "black");
+					tooltip.style("opacity", 0);
+				}
+
+				// Let's make a graph!
+
+				// Remove the loading text
+				d3.select("#pos-loading-text").remove()
+
+				// Positive cases by date
+				positivesvg.selectAll("circle")
+					.data(positiveData)
+					.enter()
+					.append("circle")
+					.filter(function(d) {
+						return (d.todayPercent !== null);
+					})
+					.attr("fill", "black")
+					.attr("cx", function(d) {
+						return xScale(parseTime(d.date));											
+					})
+					.attr("cy", function (d) {
+						return yScale(d.todayPercent)
+					})
+					.attr("r", 4)
+					.on("mouseover", mouseOver)
+					.on("mouseleave", mouseLeave);
+					
+				positivesvg
+					.append("g")
+					.attr("class", "axis")
+					.attr("transform", "translate(0," + (hPositive - paddingPos) + ")")
+					.call(xAxis);
+
+				positivesvg
+					.append("g")
+					.attr("class", "axis")
+					.attr("transform", "translate(" + paddingPos + ",0)")
+					.call(yAxis);
+
+				// Remove the loading text
+				d3.select("#cp-loading-text").remove()
+										
+				cumPositivesvg.selectAll("circle")
+					.data(positiveData)
+					.enter()
+					.append("circle")
+					.attr("fill", "black")
+					.attr("cx", function(d) {
+						return xScale(parseTime(d.date));
+					})
+					.attr("cy", function (d) {
+						return yScale2(d.cumPercentage)
+					})
+					.attr("r", 4)
+					.on("mouseover", mouseOver2)
+					.on("mouseleave", mouseLeave);		
+
+				cumPositivesvg
+					.append("g")
+					.attr("class", "axis")
+					.attr("transform", "translate(0," + (hPositive - paddingPos) + ")")
+					.call(xAxis);
+
+				cumPositivesvg
+					.append("g")
+					.attr("class", "axis")
+					.attr("transform", "translate(" + paddingPos + ",0)")
+					.call(yAxis2);
+				
+			// This is the closing delimiter for the percentage graphs
+			// Note to self: Please stop deleting it.
+			});
 
 
 			// Use local copy of data for development.
