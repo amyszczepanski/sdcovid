@@ -28,7 +28,7 @@
 	</head>
 	<body>
 		<div><h2>Some data on COVID-19 in San Diego County</h2>
-		<div id="overall-stats" style="visibility: hidden">Waiting for data...<br>Loading...</div>
+		<div id="overall-stats" style="display: inline-block; min-height: 125px;">&nbsp;</div>
 		<div>
 			<h3>Rate of positive COVID-19 tests each day in San Diego County</h3>
 			<h4 id="moving-words">Moving average</h4>
@@ -40,6 +40,8 @@
 			Choose 1 day for no averaging. Early dates have incomplete data.
 		</div>
 		<div id="positive-graph"></div>
+		<div><h3>New COVID-19 cases reported each day in San Diego County</h3></div>
+		<div id="new-case-graph"></div>
 		<div><h3>COVID-19 total cases in San Diego County by ZIP code</h3></div>
 		<div style="padding-bottom: 10px;">
 			<label for="zipDate">Data available after March 30, 2020. Pick a valid date:</label>
@@ -76,11 +78,9 @@
 		  const MAX_POPULATION = 84626;
 		  const DEFAULT_MOVING_DAYS = 7;
 		  
+		  // How long since the first entry that I've seen in the data
 		  const duration = moment().diff(moment(1583568000000), 'day');
 			document.getElementById("moving-days").setAttribute("max", duration);		
-
-			// Note to self, County doesn't use WGS84.
-			// ogr2ogr -f GeoJSON -t_srs "EPSG:4326" zipcodes.geojson f285f663-2fc3-43b8-910a-31df89a27bdf2020330-1-1a4uvc4.5829.shp
 
 			// Width and height of SVG for map
 			const w = 800;
@@ -96,6 +96,12 @@
 				.attr("width", w)
 				.attr("height", hPositive)
 
+			// Create SVG element for the new cases per day (same w and h)
+			const newCaseSVG = d3.select("#new-case-graph")
+				.append("svg")
+				.attr("width", w)
+				.attr("height", hPositive)
+
 			//Create SVG element for the map
 			const mapsvg = d3.select("#map")
 				.append("svg")
@@ -105,6 +111,11 @@
 			// Loading...
 			positivesvg.append("text")
 				.attr("id", "pos-loading-text")
+				.attr("x",20).attr("y",20)
+				.text("Loading...");
+
+			newCaseSVG.append("text")
+				.attr("id", "new-case-loading-text")
 				.attr("x",20).attr("y",20)
 				.text("Loading...");
 
@@ -194,23 +205,48 @@
 				if (!movingDays || parseInt(movingDays) < 1 || parseInt(movingDays) > duration) {
 					dayParameter = 1;
 				}
-				const positiveURL = "https://sdcovid.today/fetch_and_parse_county.php?days=" + dayParameter;
+// 				const positiveURL = "https://sdcovid.today/fetch_and_parse_county.php?days=" + dayParameter;
+				const positiveURL = "fetch_and_parse_county.php?days=" + dayParameter;
 				d3.json(positiveURL).then(function(positiveData) {
 				
 					// Most recent information:
-					const totalCases = positiveData.big_picture.total_cases;
-					const totalTests = positiveData.big_picture.total_tests;
+					const totalDeaths = positiveData.big_picture.total_deaths;
+					const totalICU = positiveData.big_picture.total_icu;
+					const totalHospital = parseInt(positiveData.big_picture.total_hospitalized);
+					const totalCases = parseInt(positiveData.big_picture.total_cases);
+					const totalTests = parseInt(positiveData.big_picture.total_tests);
 					const sinceYesterday = positiveData.big_picture.new_cases;
 					const dataDate = positiveData.big_picture.date;
+					
+					const percentDead = (100 * parseFloat(totalDeaths) / parseFloat(totalCases)).toFixed(2);
+					const percentICU = (100 * parseFloat(totalICU) / parseFloat(totalCases)).toFixed(2);
+					const percentHospital = (100 * parseFloat(totalHospital) / parseFloat(totalCases)).toFixed(2);
 					
 					document.getElementById("moving-words").innerHTML = "<h4>Moving average over "+
 					dayParameter + " day" + (dayParameter > 1 ? "s": "") + "</h4>"
 				
-					document.getElementById("overall-stats").innerHTML = "As of " +
-					moment(parseInt(dataDate)).format('MMMM D, YYYY') + 
-					", there were " + totalCases.toLocaleString() + " cases of COVID-19 recorded in San Diego County.<br>" +
-					"This was an increase of " + sinceYesterday + " cases from the previous day.<br>" +
-					"There have been a total of " + totalTests.toLocaleString() + " tests.";
+					document.getElementById("overall-stats").innerHTML = 
+					"COVID-19 Data for San Diego County, as of  " +
+					moment(parseInt(dataDate)).format('MMMM D, YYYY') + ". " +
+					"<table style='table-layout:fixed; padding-top:10px; padding-bottom:10px; max-width: 800px;'><thead>" + 
+					"<tr><th></th><th style='text-align:right; width: 105px;'>Deaths</th>" + 
+					"<th style='text-align:right; width: 105px;'>ICU</th>" + 
+					"<th style='text-align:right; width: 125px;'>Hospitalized</th>" + 
+					"<th style='text-align:right; width: 105px;'>Cases</th>" + 
+					"<th style='text-align:right; width: 105px;'>Tests</th></tr>" + 
+					"</thead>" +
+					"<body><tr><td style='text-align:right; width: 125px;'>Total</td><td style='text-align:right;'>" + totalDeaths + 
+					"</td><td style='text-align:right;'>"+ totalICU + 
+					"</td><td style='text-align:right;'>"+ totalHospital.toLocaleString() + "</td>" +
+					"</td><td style='text-align:right;'>"+ totalCases.toLocaleString() + "</td>" +
+					"</td><td style='text-align:right;'>"+ totalTests.toLocaleString() + "</td></tr>" +
+					"<tr><td style='text-align:right; width: 125px;'>Percent of Cases</td>" + 
+					"<td style='text-align:right;'>" + percentDead + "%</td>" + 
+					"<td style='text-align:right;'>" + percentICU + "%</td>" + 
+					"<td style='text-align:right;'>" + percentHospital + "%</td></tr>" +
+					"</tbody></table>" + 
+					"There were " + sinceYesterday + " new cases since the previous day.";
+					
 					document.getElementById("overall-stats").style.visibility = "visible";
 				
 					positiveDailyData = positiveData.average_positive_rate;
@@ -272,7 +308,7 @@
 						tooltip.style("opacity", 0);
 					}
 
-					// Let's make a graph!
+					// Let's make a graph! Moving average!
 
 					// Remove the loading text
 					d3.select("#pos-loading-text").remove()
@@ -309,8 +345,101 @@
 						.attr("class", "axis")
 						.attr("transform", "translate(" + paddingPos + ",0)")
 						.call(yAxis);
+
+					// Let's do it all over again for the new cases graph
+					// Really? Really.
+					
+					newOutcomesData = positiveData.non_test_data;
+					console.table(newOutcomesData);
+
+					const xScaleNewOutcomes = d3
+						.scaleTime()
+						.domain([
+							d3.min(newOutcomesData, function(d) {
+								return parseTime(0.001 * d.date);
+							}),
+							d3.max(newOutcomesData, function(d) {
+								return parseTime(0.001 * d.date);
+							}),
+						])
+						.range([paddingPos, w - paddingPos]);
+					
+					const xAxisNewOutcomes = d3.axisBottom(xScaleNewOutcomes);
+
+					// Max value of the new cases
+					const newCaseMax = d3.max(newOutcomesData, function(d) {
+						return parseInt(d.new_cases);
+					});
 				
-				// This is the closing delimiter for the percentage graph
+					// y-axis doesn't need conversion, just move points away from margins
+					// The 5 is an ad hoc constant to make things look better in Chrome
+					const yScaleNewOutcomes = d3
+						.scaleLinear()
+						.domain([0, newCaseMax])
+						.range([hPositive - paddingPos, 5]);
+
+					const yAxisNewOutcomes = d3.axisLeft(yScaleNewOutcomes);
+
+					const mouseOverNewOutcomes = function(d) {
+						d3.select(this)
+							.style("fill", "#990000");
+						tooltip
+							.style("opacity", 1)
+							.html(function() {
+								return (
+									moment(parseInt(d.date)).format('MMMM D, YYYY') + 
+									(d.new_cases ? "<br>New cases: " + d.new_cases : "missing some data") +
+									(d.total_positives ? "<br>Total cases: " +  parseInt(d.total_positives).toLocaleString() : "") 
+								);
+							})
+							.style("position", "absolute")
+							.style("left", parseInt(d3.event.pageX) + "px")
+							.style("top", parseInt(d3.event.pageY) + "px");
+							d3.event.stopPropagation();
+					}
+				
+ 				  // Now let's make the new outcomes graph
+					// Remove the loading text
+					d3.select("#new-case-loading-text").remove()
+
+					// This is an ad hoc fix to hide the fact that all data gets reloaded
+					newCaseSVG.selectAll("*").remove();
+
+					// number new positive by date
+					newCaseSVG.selectAll("circle")
+						.data(newOutcomesData)
+						.enter()
+						.append("circle")
+						.filter(function(d) {
+							return (d.new_cases !== null);
+						})
+						.attr("class", "point")
+						.attr("fill", "black")
+						.attr("cx", function(d) {
+							return xScaleNewOutcomes(parseTime(0.001 * d.date));											
+						})
+						.attr("cy", function (d) {
+							return yScaleNewOutcomes(parseInt(d.new_cases))
+						})
+						.attr("r", 4)
+						.on("mouseover", mouseOverNewOutcomes)
+						.on("click", mouseOverNewOutcomes)
+						.on("mouseleave", mouseLeave);
+					
+					newCaseSVG
+						.append("g")
+						.attr("class", "axis")
+						.attr("transform", "translate(0," + (hPositive - paddingPos) + ")")
+						.call(xAxisNewOutcomes);
+
+					newCaseSVG
+						.append("g")
+						.attr("class", "axis")
+						.attr("transform", "translate(" + paddingPos + ",0)")
+						.call(yAxisNewOutcomes);
+				
+				
+				// This is the closing delimiter for the graphs
 				// Note to self: Please stop deleting it.
 				});			
 			}
