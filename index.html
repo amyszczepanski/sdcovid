@@ -3,10 +3,8 @@
 	<head>
 		<meta charset="utf-8">
 		<title>San Diego County: COVID-19</title>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.25.0/moment.min.js" integrity="sha256-imB/oMaNA0YvIkDkF5mINRWpuFPEGVCEkHy6rm2lAzA=" crossorigin="anonymous"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js"></script>
-		<script src="zipShapes.js"></script>
 		<style type="text/css">
 			html, body {
 				font-family: Helvetica, sans-serif;
@@ -29,6 +27,8 @@
 	<body>
 		<div><h2>Some data on COVID-19 in San Diego County</h2>
 		<div id="overall-stats" style="display: inline-block; min-height: 125px;">&nbsp;</div>
+		<div><h3>New COVID-19 cases reported each day in San Diego County</h3></div>
+		<div id="new-case-graph"></div>
 		<div>
 			<h3>Rate of positive COVID-19 tests each day in San Diego County</h3>
 			<h4 id="moving-words">Moving average</h4>
@@ -40,8 +40,6 @@
 			Choose 1 day for no averaging. Early dates have incomplete data.
 		</div>
 		<div id="positive-graph"></div>
-		<div><h3>New COVID-19 cases reported each day in San Diego County</h3></div>
-		<div id="new-case-graph"></div>
 		<div><h3>COVID-19 total cases in San Diego County by ZIP code</h3></div>
 		<div style="padding-bottom: 10px;">
 			<label for="zipDate">Data available after March 30, 2020. Pick a valid date:</label>
@@ -487,7 +485,7 @@
 						}
 	
 						let path = d3.geoPath()
-						 .projection(d3.geoMercator().fitSize([w, h], zipShapes));								
+						 .projection(d3.geoMercator().fitSize([w, h], casesPerZIP.zip_data));								
 			
 						// Bind data and create one path per GeoJSON feature
 						mapsvg.selectAll("path")
