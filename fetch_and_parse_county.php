@@ -1,4 +1,6 @@
 <?php
+error_reporting(0);
+
 require_once '../config.php';
 include "includes/Tau.php";
 include "includes/modules/TauDb.php";

@@ -147,56 +147,6 @@
 						return;
 					}
 				});
-
-				// Helper functions and such
-				
-				// This should go into the zipShapes.js file.
-				const objectZIP = {};
-				// Match data to shapes based on OBJECTID from the GeoJSON
-				for (let i = 0; i < zipShapes.features.length; i++) {
-					theZIP = zipShapes.features[i].properties.ZIP.toString();					
-					if (theZIP in objectZIP) {
-						objectZIP[theZIP].push(i);		
-					} else {
-						objectZIP[theZIP] = [i];
-					}
-				}
-				
-				// Simplify the data structure.
-				const processCountyData = function(countyData) {
-					// Array of objects makes it easier to find the extent of the data
-					const dateCounts = [];
-					for (let i = 0; i < countyData.features.length; i++) {
-						const thisZIP = countyData.features[i].properties.zipcode_zip;
-						const updateDate = countyData.features[i].properties.updatedate;
-						const caseCount = countyData.features[i].properties.case_count;
-						const parsedDate = moment(updateDate, "YYYY-MM-DD");
-						dateCounts.push({"ZIP": thisZIP.toString(), "date": parsedDate, "cases": caseCount});
-					}
-					return dateCounts;
-				}
-
-				// We can map for any date in the dataset by looking up (date, object)
-				// The shapefile has the object for each path; OBJECTID = index + 1
-				const makeMappableData = function(minDate, dateExtent, dateCounts, objectZIP) {
-					// This creates the array of arrays that can be used for mapping
-					// (dateOffset, cases[objectID]) 
-					casesDateZIP = [];
-					for (let i = 0; i < dateExtent + 1; i++) {
-						casesDateZIP.push(Array(zipShapes.features.length).fill(null));
-					}
-
-					// Now we populate it with case data.
-					for (const dateGeoData of dateCounts) {
-						const dateOffset = moment(dateGeoData.date).diff(minDate, 'days');
-						// Find and iterate over the objectIDs for this ZIP code
-						for (const objectID of objectZIP[dateGeoData.ZIP.toString()]) {
-							// Now write the number of cases to that cell.
-							casesDateZIP[dateOffset][parseInt(objectID)] = dateGeoData.cases;					
-						}
-					}
-					return casesDateZIP;
-				}
 			
 			const getDataAndMakeGraph = function(movingDays) {
 				// We know when the data started so I can come up with bounds wrt today
@@ -350,7 +300,6 @@
 					// Really? Really.
 					
 					newOutcomesData = positiveData.non_test_data;
-					console.table(newOutcomesData);
 
 					const xScaleNewOutcomes = d3
 						.scaleTime()
@@ -457,18 +406,13 @@
 				getDataAndMakeGraph(parseInt(newDays));
 			}
 
-			// Use local copy of data for development.
-// 			const url = "countyData.json";
-			const url = "https://opendata.arcgis.com/datasets/854d7e48e3dc451aa93b9daf82789089_0.geojson";
-			d3.json(url).then(function(countyData) {				
-				dateCounts = processCountyData(countyData);
+// 			const url = "https://opendata.arcgis.com/datasets/854d7e48e3dc451aa93b9daf82789089_0.geojson";
+			const url = "https://sdcovid.today/fetch_and_parse_zip_code_data.php";
+			d3.json(url).then(function(casesPerZIP) {				
 
 				// What dates do we have data for? What is the extent?
-				const observedDate = dateCounts.map(function(observation) {
-					return observation.date;
-				});
-				const minDate = moment.min(observedDate);
-				const maxDate = moment.max(observedDate);
+				const minDate = moment(casesPerZIP.date_span.min_date);
+				const maxDate = moment(casesPerZIP.date_span.max_date);
 				const dateExtent = parseInt(maxDate.diff(minDate, 'days'));
 
 				// Initialize the date picker.
@@ -476,13 +420,9 @@
 				document.getElementById("zipDate").setAttribute("max", moment(maxDate).format("YYYY-MM-DD"));		
 				document.getElementById("zipDate").setAttribute("value", moment(maxDate).format("YYYY-MM-DD"));		
 
-				const mapData = makeMappableData(minDate, dateExtent, dateCounts, objectZIP);
 				
-		
 				// max for ZIPs with more than five cases and more than 10,000 people
-				const maxPer10k = d3.max(zipShapes.features, function(d, i) {
-					return (mapData[dateExtent][i] > 4 && d.properties.population > 10000 ? 10000.0 * mapData[dateExtent][i] / Math.max(d.properties.population, 1) : 0);
-				});
+				const maxPer10k = casesPerZIP.max_per_10k;
 								
 				// based on the case counts, define some colors
 				// The magic number seven (plus or minus two)
@@ -508,7 +448,7 @@
 						// Remove the loading text
 						d3.select("#map-loading-text").remove();
 						
-						// Remove any old maps
+						// Remove any old maps. There has got to be a better way to do this.
 						d3.selectAll("path.ZIP").remove();
 				
 						// Some words
@@ -526,12 +466,12 @@
 									return (
 										d.properties.ZIP + 
 										" " + 
-										(d.properties.ZIP === 92145 ? "MCAS Miramar" : d.properties.COMMUNITY)	+ 
+										(d.properties.ZIP === 92145 ? "MCAS Miramar" : d.properties.community)	+ 
 										"<br>" +
-										(mapData[chosenOffset][i] ? mapData[chosenOffset][i] : "no reported" ) +
+										(d.properties.case_counts[chosenOffset] ? d.properties.case_counts[chosenOffset] : "no reported" ) +
 										" case" +
-										(mapData[chosenOffset][i] === 1 ? "" : "s") + 
-										(mapData[chosenOffset][i] ? ", population: " + d.properties.population + "<br>" + (10000.0 * mapData[chosenOffset][i] / d.properties.population).toFixed(2) + " per 10k population" : "")
+										(d.properties.case_counts[chosenOffset] === 1 ? "" : "s") + 
+										(d.properties.case_counts[chosenOffset] ? ", population: " + d.properties.population + "<br>" + (10000.0 * d.properties.case_counts[chosenOffset] / d.properties.population).toFixed(2) + " per 10k population" : "")
 									);
 								})
 								.style("position", "absolute")
@@ -552,15 +492,15 @@
 			
 						// Bind data and create one path per GeoJSON feature
 						mapsvg.selectAll("path")
-							 .data(zipShapes.features)
+							 .data(casesPerZIP.zip_data.features)
 							 .enter()
 							 .append("path")
 							 .attr("d", path)
 							 .attr("class", function(d) { return "ZIP" })
 							 .style("stroke", "black")
 							 .style("fill", function(d, i) {
-								const value = (10000 * mapData[chosenOffset][i] / Math.max(d.properties.population, 1));
-								if (mapData[chosenOffset][i] > 4 && d.properties.population > 10000) {
+								const value = (10000 * d.properties.case_counts[chosenOffset] / Math.max(d.properties.population, 1));
+								if (d.properties.case_counts[chosenOffset] > 4 && d.properties.population > 10000) {
 									return colorScale(value);
 								} else {
 									return drabberScale(value ? value : 0);
@@ -573,7 +513,7 @@
 
 				document.getElementById("zipDate").dispatchEvent(new Event("change"));
 
-			// End group for reading in the GeoJSON case data
+			// End group for the GeoJSON case data
 			});
 			
 		</script>
