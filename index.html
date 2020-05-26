@@ -455,7 +455,7 @@
 						chosenDate.format('MMMM D, YYYY') + ".";
 						
 
-						const mouseOver = function(d, i) {
+						const mouseOver = function(d) {
 							d3.select(this)
 								.style("stroke-width", 1)
 								.style("fill-opacity", 0.5);
@@ -465,12 +465,12 @@
 									return (
 										d.properties.ZIP + 
 										" " + 
-										(d.properties.ZIP === 92145 ? "MCAS Miramar" : d.properties.community)	+ 
+										(d.properties.ZIP === "92145" ? "MCAS Miramar" : d.properties.community)	+ 
 										"<br>" +
 										(d.properties.case_counts[chosenOffset] ? d.properties.case_counts[chosenOffset] : "no reported" ) +
 										" case" +
 										(d.properties.case_counts[chosenOffset] === 1 ? "" : "s") + 
-										(d.properties.case_counts[chosenOffset] ? ", population: " + d.properties.population + "<br>" + (10000.0 * d.properties.case_counts[chosenOffset] / d.properties.population).toFixed(2) + " per 10k population" : "")
+										(d.properties.case_counts[chosenOffset] ? ", population: " + parseInt(d.properties.population).toLocaleString() + "<br>" + (10000.0 * d.properties.case_counts[chosenOffset] / d.properties.population).toFixed(2) + " per 10k population" : "")
 									);
 								})
 								.style("position", "absolute")
