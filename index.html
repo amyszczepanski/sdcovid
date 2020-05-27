@@ -403,7 +403,7 @@
 				getDataAndMakeGraph(parseInt(newDays));
 			}
 
-			const url = "https://sdcovid.today/fetch_and_parse_zip_code_data.php";
+			const url = "fetch_and_parse_zip_code_data.php";
 			d3.json(url).then(function(casesPerZIP) {				
 				// What dates do we have data for? What is the extent?
 				const minDate = moment(casesPerZIP.date_span.min_date);
