@@ -383,8 +383,7 @@
 						.append("g")
 						.attr("class", "axis")
 						.attr("transform", "translate(" + paddingPos + ",0)")
-						.call(yAxisNewOutcomes);
-				
+						.call(yAxisNewOutcomes);		
 				
 				// This is the closing delimiter for the graphs
 				// Note to self: Please stop deleting it.
@@ -406,7 +405,6 @@
 
 			const url = "https://sdcovid.today/fetch_and_parse_zip_code_data.php";
 			d3.json(url).then(function(casesPerZIP) {				
-
 				// What dates do we have data for? What is the extent?
 				const minDate = moment(casesPerZIP.date_span.min_date);
 				const maxDate = moment(casesPerZIP.date_span.max_date);
@@ -415,8 +413,7 @@
 				// Initialize the date picker.
 				document.getElementById("zipDate").setAttribute("min", moment(minDate).format("YYYY-MM-DD"));		
 				document.getElementById("zipDate").setAttribute("max", moment(maxDate).format("YYYY-MM-DD"));		
-				document.getElementById("zipDate").setAttribute("value", moment(maxDate).format("YYYY-MM-DD"));		
-
+				document.getElementById("zipDate").setAttribute("value", moment(maxDate).format("YYYY-MM-DD"));
 				
 				// max for ZIPs with more than five cases and more than 10,000 people
 				const maxPer10k = casesPerZIP.max_per_10k;
@@ -435,8 +432,9 @@
 				d3.select("#zipDate")
 					.on("change", function() {
 						let chosenDate = moment(document.getElementById("zipDate").value);
-						let chosenOffset = moment(chosenDate).diff(minDate, "days");
-						if (chosenOffset < 0 || !(moment(chosenDate).isValid()) || moment(chosenDate).isAfter(moment())) {
+						let chosenOffset = moment(chosenDate).diff(minDate.startOf("day"), "days");
+						console.log(chosenOffset);
+						if (chosenOffset < 0 || !(moment(chosenDate).isValid()) || moment(chosenDate).isAfter(moment(maxDate.startOf("day")))) {
 							chosenDate = maxDate;
 							chosenOffset = dateExtent;
 							document.getElementById("zipDate").value = maxDate.format("YYYY-MM-DD");					
