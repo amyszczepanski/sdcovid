@@ -41,7 +41,7 @@ function stash_in_database($db, $county_zip_data) {
 		array_push($stuff_to_insert, $the_row);
 	}
 
-// 	$db->insertMulti("sd_zip_cases", $stuff_to_insert);
+	$db->insertMulti("sd_zip_cases", $stuff_to_insert);
 }
 
 // There is such date shenanigans going on here that I do not understand.
