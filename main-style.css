@@ -14,3 +14,7 @@ svg {
 ul.data-list {
 	margin-bottom: 25px;
 }
+
+.container {
+  display: flex;
+}
