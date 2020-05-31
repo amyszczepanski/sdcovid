@@ -41,7 +41,7 @@ function stash_in_database($db, $county_zip_data) {
 		array_push($stuff_to_insert, $the_row);
 	}
 
-	$db->insertMulti("sd_zip_cases", $stuff_to_insert);
+// 	$db->insertMulti("sd_zip_cases", $stuff_to_insert);
 }
 
 // There is such date shenanigans going on here that I do not understand.
@@ -114,6 +114,11 @@ $all_the_data = $db->fetchAllObject($sql);
 // Now we need to make this into GeoJSON yay oof.
 $geo_json_features_array = [];
 
+// Also need an ad hoc array for finding max new cases per 100,000 population
+// Sorry about the long variable name; there are a lot of things with similar names.
+// We don't know which day or which ZIP will have the most here, so we need to check all.
+$find_max_new_cases_per_100k = [];
+
 foreach ($all_the_data as $index=>$zip_data) {
 	$zip_data->geometry = json_decode($zip_data->geometry);
 	$zip_data->case_counts = explode(',', $zip_data->case_counts);
@@ -124,12 +129,31 @@ foreach ($all_the_data as $index=>$zip_data) {
 		array_unshift($zip_data->case_counts, 0);
 	}
 
+	// Giving it a name for easy access
+	$today_count = $zip_data->case_counts;
+	
+	// Need a copy of the array of total cases to compute successive differences
+	$yesterday_count = $today_count;
+	array_unshift($yesterday_count, 0);
+
+	
+	$new_cases_per_100k = [];
+	for ($i = 0; $i < count($today_count); $i++) {
+		$per_capita = 100000.0 * floatval($today_count[$i] - $yesterday_count[$i]) / max(floatval($zip_data->population), 1.0);
+		array_push($new_cases_per_100k, max($per_capita, 0));
+		// We get some weird values from low-population locations
+		if ($today_count[$i] > 4 && $zip_data->population > 10000) {
+			array_push($find_max_new_cases_per_100k, $per_capita);
+		}
+	}
+	
 	$properties = (object) [
 		ZIP => $zip_data->ZIP,
 		object_id => intval($zip_data->object_id),
 		population => intval($zip_data->population),
 		community => $zip_data->community,
 		case_counts => $zip_data->case_counts,
+		new_cases_per_100k => $new_cases_per_100k,
 	];
 
 	$the_feature = (object) [
@@ -164,9 +188,12 @@ $sql = "
 ";
 $max_per_10k = $db->fetchValue($sql);
 
+$max_new_per_100k = max($find_max_new_cases_per_100k);
+
 $payload = (object) [
 	'date_span' => $date_span,
 	'max_per_10k' => $max_per_10k,
+	'max_new_per_100k' => $max_new_per_100k,
 	'zip_data' => $formatted_data,
 ];
 
