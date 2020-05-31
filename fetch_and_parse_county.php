@@ -40,7 +40,7 @@ function stash_in_database($db, $county_data) {
 }
 
 $server = new TauDbServer($mydatabase, $myusername, $mypassword);
-$server->host = 'sdcovid.today'; 
+$server->host = $myhost; 
 // $server->port = 3306; 
 $db = TauDB::init('Mysqli', $server);
 

@@ -11,8 +11,8 @@ include "includes/modules/TauDb.php";
 
 date_default_timezone_set('America/Los_Angeles');
 
-$server = new TauDbServer('covid', $myusername, $mypassword);
-$server->host = 'sdcovid.today'; 
+$server = new TauDbServer($mydatabase, $myusername, $mypassword);
+$server->host = $myhost; 
 // $server->port = 3306; 
 $db = TauDB::init('Mysqli', $server);
 
