@@ -93,7 +93,7 @@ if ($time_since_last_report > 60 * 60 * (24 + 24 + 12)) {
 }
 
 // Get everything that we have, old and new. Let the database take care of it all.
-$sql = "SELECT * FROM `sd_daily_cases` ORDER BY `county_date` ASC";
+$sql = "SELECT * FROM `sd_daily_cases` WHERE `tests` IS NOT NULL ORDER BY `county_date` ASC";
 $all_the_data = $db->fetchAllObject($sql);
 
 // Now what to do with all this data that we are keeping track of?
