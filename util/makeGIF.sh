@@ -19,11 +19,19 @@ do
 	/usr/bin/node /var/www/html/util/makeFrames.js $i
   printf -v j "%02d" $i
 	/usr/bin/convert mapframe$j.svg mapframe$j.png
+
+	/usr/bin/node /var/www/html/util/makeNewCaseFrames.js $i
+  printf -v j "%02d" $i
+	/usr/bin/convert mapNewCaseFrame$j.svg mapNewCaseFrame$j.png
 done
 
 /usr/bin/convert -delay 20 -loop 0 mapframe*.png sdzipmap.gif
 /usr/bin/convert sdzipmap.gif \( +clone -set delay 400 \) +swap +delete sdzipmap.gif
 /usr/bin/mv sdzipmap.gif ../sdzipmap.gif
+
+/usr/bin/convert -delay 20 -loop 0 mapNewCaseFrame*.png sdzipnewcasemap.gif
+/usr/bin/convert sdzipnewcasemap.gif \( +clone -set delay 400 \) +swap +delete sdzipnewcasemap.gif
+/usr/bin/mv sdzipnewcasemap.gif ../sdzipnewcasemap.gif
 
 /usr/bin/rm zip_data.json
 /usr/bin/rm *.svg
