@@ -1,2 +1,2 @@
 # sdcovid
-putting my covid-19 data-stuff under version control
+these are the scripts that I use for my [site tracking COVID-19 in San Diego County](http://www.sdcovid.today).
