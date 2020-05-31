@@ -1,5 +1,5 @@
 # sdcovid
-These are the scripts that I use for my [site tracking COVID-19 in San Diego County](http://www.sdcovid.today).
+These are the scripts and such that I use for my [site tracking COVID-19 in San Diego County](http://www.sdcovid.today).
 
 Feel free to adapt this to your purposes. The ingredients are:
 
