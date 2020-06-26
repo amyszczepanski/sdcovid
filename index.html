@@ -11,10 +11,10 @@
 	<body>
 		<div><h2>Some data on COVID-19 in San Diego County</h2>
 		<div id="overall-stats" style="display: inline-block; min-height: 125px;">&nbsp;</div>
-		<div><h3>New COVID-19 cases reported each day in San Diego County (past 90 days)</h3></div>
+		<div><h3>New COVID-19 cases reported each day in San Diego County (past 90 days of data)</h3></div>
 		<div id="new-case-graph"></div>
 		<div>
-			<h3>Rate of positive COVID-19 tests each day in San Diego County (past 90 days)</h3>
+			<h3>Rate of positive COVID-19 tests each day in San Diego County (past 90 days of data)</h3>
 			<h4 id="moving-words">Moving average</h4>
 			<label for="moving-days">Days for calculating moving average:</label>
 			<input type="number" id="moving-days" name="moving-days" min="1" value="7" max="90">
@@ -247,7 +247,13 @@
 
 					const mouseLeave = function(d) {
 						d3.select(this)
-							.style("fill", "black");
+							.style("fill", function(d) {
+							  if (d.hasOwnProperty('new_cases') && d.new_cases === recordNumber) {
+							    return ("red");
+							  } else {
+							    return ("black");
+							  }
+							});
 						tooltip.style("opacity", 0);
 					}
 
@@ -331,7 +337,8 @@
 								return (
 									moment(parseInt(d.date)).format('MMMM D, YYYY') + 
 									(d.new_cases ? "<br>New cases: " + d.new_cases : "missing some data") +
-									(d.total_positives ? "<br>Total cases: " +  parseInt(d.total_positives).toLocaleString() : "") 
+									((d.new_cases === recordNumber) ? "<br>Record high!" : "") +
+									(d.total_positives ? "<br>Total cases: " +  parseInt(d.total_positives).toLocaleString() : "")
 								);
 							})
 							.style("position", "absolute")
@@ -356,7 +363,13 @@
 							return (d.new_cases !== null);
 						})
 						.attr("class", "point")
-						.attr("fill", "black")
+						.attr("fill", function(d) {
+						  if (d.new_cases === recordNumber) {
+						  	return ("red");
+						  } else {
+						  	return  ("black");
+						  }
+						})
 						.attr("cx", function(d) {
 							return xScaleNewOutcomes(parseTime(0.001 * d.date));											
 						})
