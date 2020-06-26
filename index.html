@@ -153,6 +153,7 @@
 					const totalCases = parseInt(positiveData.big_picture.total_cases);
 					const totalTests = parseInt(positiveData.big_picture.total_tests);
 					const sinceYesterday = positiveData.big_picture.new_cases;
+					const recordNumber = positiveData.big_picture.max_new_cases;
 					const dataDate = positiveData.big_picture.date;
 					
 					const percentDead = (100 * parseFloat(totalDeaths) / parseFloat(totalCases)).toFixed(2);
@@ -162,8 +163,7 @@
 					document.getElementById("moving-words").innerHTML = "<h4>Moving average over "+
 					dayParameter + " day" + (dayParameter > 1 ? "s": "") + "</h4>"
 				
-					document.getElementById("overall-stats").innerHTML = 
-					"COVID-19 Data for San Diego County, as of  " +
+					let dailySummary = "COVID-19 Data for San Diego County, as of  " +
 					moment(parseInt(dataDate)).format('MMMM D, YYYY') + ". " +
 					"<table style='table-layout:fixed; padding-top:10px; padding-bottom:10px; max-width: 800px;'><thead>" + 
 					"<tr><th></th><th style='text-align:right; width: 105px;'>Deaths</th>" + 
@@ -183,6 +183,12 @@
 					"<td style='text-align:right;'>" + percentHospital + "%</td></tr>" +
 					"</tbody></table>" + 
 					"There were " + sinceYesterday + " new cases since the previous day.";
+
+					if (sinceYesterday === recordNumber) {
+						dailySummary += " This is a new record!";
+					}
+														
+					document.getElementById("overall-stats").innerHTML = dailySummary;
 					
 					document.getElementById("overall-stats").style.visibility = "visible";
 				

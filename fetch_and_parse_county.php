@@ -96,6 +96,9 @@ if ($time_since_last_report > 60 * 60 * (24 + 24 + 12)) {
 $sql = "SELECT * FROM `sd_daily_cases` WHERE `tests` IS NOT NULL AND FROM_UNIXTIME(county_date * 0.001) > NOW() - INTERVAL '90' DAY ORDER BY `sd_daily_cases`.`county_date` ASC";
 $all_the_data = $db->fetchAllObject($sql);
 
+$sql = "SELECT MAX(new_cases) AS max_new_cases FROM sd_daily_cases";
+$max_new_cases = $db->fetchValue($sql);
+
 // Now what to do with all this data that we are keeping track of?
 // Moving average over how many days?
 $moving_days = intval(htmlspecialchars($_GET["days"]));
@@ -119,6 +122,7 @@ $big_picture = (object) [
 	'total_cases' => $recent_data->positives,
 	'total_tests' => $recent_data->tests,
 	'new_cases' => $recent_data->new_cases,
+	'max_new_cases' => $max_new_cases,
 	'averaged_over' => $moving_days,
 ];
 
