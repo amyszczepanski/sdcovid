@@ -142,7 +142,7 @@ foreach ($all_the_data as $index=>$zip_data) {
 		$per_capita = 100000.0 * floatval($today_count[$i] - $yesterday_count[$i]) / max(floatval($zip_data->population), 1.0);
 		array_push($new_cases_per_100k, max($per_capita, 0));
 		// We get some weird values from low-population locations
-		if ($today_count[$i] > 4 && $zip_data->population > 10000) {
+		if ($today_count[$i] > 4 && $zip_data->population > 10000 && $i > 6) {
 			array_push($find_max_new_cases_per_100k, $per_capita);
 		}
 	}
